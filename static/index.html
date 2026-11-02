@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Risk Twin Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="app-header">
+        <h1>Environmental Risk Intelligence Dashboard</h1>
+        <nav class="nav-tabs">
+            <button id="tab-btn-twin" class="active">Digital Twin Map</button>
+            <button id="tab-btn-risk">Regional Risk Summary</button>
+            <button id="tab-btn-ai">AI Forecast &amp; Insights</button>
+            <button id="tab-btn-method">Methodology</button>
+        </nav>
+    </header>
+
+    <main class="container">
+        <!-- Digital Twin View -->
+        <section id="view-twin" class="view-content active">
+            <div class="telemetry-bar">
+                <div class="card"><span>PM2.5:</span> <strong id="val-pm25">--</strong></div>
+                <div class="card"><span>NO2:</span> <strong id="val-no2">--</strong></div>
+                <div class="card"><span>Temp:</span> <strong id="val-temp">--</strong></div>
+                <div class="card"><span>Wind Speed:</span> <strong id="val-wind">--</strong></div>
+            </div>
+            <div class="grid-layout">
+                <div id="map" style="height: 500px; width: 100%; border-radius: 8px;"></div>
+                <div class="sidebar">
+                    <h3>Simulation Controls</h3>
+                    <label>Traffic Modifier: <span id="label-traffic">1.0x</span></label>
+                    <input type="range" id="slider-traffic" min="0.5" max="3.0" step="0.1" value="1.0">
+                    <label>Industrial Modifier: <span id="label-industrial">1.0x</span></label>
+                    <input type="range" id="slider-industrial" min="0.5" max="3.0" step="0.1" value="1.0">
+                    <button id="btn-simulate" class="btn-primary">Run Simulation</button>
+                    <button id="btn-show-high-risk" class="btn-secondary">Filter High Risk</button>
+                    <button id="btn-show-all-zones" class="btn-secondary">Reset View</button>
+                    <hr>
+                    <div id="risk-panel-details" style="display:none;">
+                        <h3>Selected Station: <span id="risk-station-id">--</span></h3>
+                        <p>Score: <span id="risk-score-val">--</span> | Level: <span id="risk-level-badge">--</span></p>
+                        <p>PM2.5: <span id="risk-pm25-val">--</span> | NO2: <span id="risk-no2-val">--</span></p>
+                        <div style="height: 150px;"><canvas id="riskContributorsChart"></canvas></div>
+                        <button id="btn-download-report" class="btn-success">Download PDF Risk Report</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Regional Risk Summary View -->
+        <section id="view-risk" class="view-content">
+            <h2>Regional Environmental Assessment</h2>
+            <div class="telemetry-bar">
+                <div class="card"><span>Avg Regional Risk:</span> <strong id="reg-avg-risk">--</strong></div>
+                <div class="card"><span>Avg NO2 Level:</span> <strong id="reg-avg-no2">--</strong></div>
+                <div class="card"><span>High Risk Stations:</span> <strong id="reg-high-zones">--</strong></div>
+                <div class="card"><span>Low Risk Stations:</span> <strong id="reg-low-zones">--</strong></div>
+            </div>
+        </section>
+
+        <!-- NEW: AI Forecast & Insights View -->
+        <section id="view-ai" class="view-content">
+            <div class="ai-header">
+                <h2>AI Forecast &amp; Insights</h2>
+                <div class="ai-actions">
+                    <span id="ai-status" class="muted">Not loaded</span>
+                    <button id="btn-retrain" class="btn-primary">Retrain Models</button>
+                    <a id="btn-export" class="btn-secondary link-btn" href="/api/history/export.csv?days=30">Export 30-day CSV</a>
+                </div>
+            </div>
+
+            <div class="telemetry-bar">
+                <div class="card"><span>Peak Forecast Risk:</span> <strong id="ai-peak-risk">--</strong></div>
+                <div class="card"><span>Peak Time:</span> <strong id="ai-peak-time">--</strong></div>
+                <div class="card"><span>High/Critical Hours (24h):</span> <strong id="ai-high-hours">--</strong></div>
+                <div class="card"><span>Active Model:</span> <strong id="ai-model">--</strong></div>
+            </div>
+
+            <div class="card-large chart-box">
+                <h3>24-Hour PM2.5 Forecast <small class="muted">(ML prediction, 80% interval, vs CAMS forecast)</small></h3>
+                <div class="chart-h"><canvas id="forecastChart"></canvas></div>
+            </div>
+
+            <div class="two-col">
+                <div class="card-large chart-box">
+                    <h3>Feature Importance <small class="muted">(permutation, held-out data)</small></h3>
+                    <div class="chart-h"><canvas id="importanceChart"></canvas></div>
+                </div>
+                <div class="card-large">
+                    <h3>Model Comparison <small class="muted">(chronological hold-out)</small></h3>
+                    <table class="data-table" id="metrics-table"><tbody><tr><td>--</td></tr></tbody></table>
+                    <p class="muted" id="metrics-note"></p>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div class="card-large chart-box">
+                    <h3>7-Day Observed Trend</h3>
+                    <div class="chart-h"><canvas id="trendChart"></canvas></div>
+                </div>
+                <div class="card-large">
+                    <h3>Anomalies <small class="muted">(Isolation Forest, last 96h)</small></h3>
+                    <div id="anomaly-list" class="muted">--</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Methodology View -->
+        <section id="view-method" class="view-content">
+            <h2>Model & Data Methodology</h2>
+            <div id="methodology-content" class="card-large">Loading methodology...</div>
+        </section>
+    </main>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
